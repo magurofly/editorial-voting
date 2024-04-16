@@ -1,18 +1,12 @@
 use sha2::{Digest, Sha256};
 
-const ATCODER_ID_PATTERN: regex::Regex = regex::Regex::new(r#"^[0-9A-Za-z]{3,16}$"#).unwrap();
-const AFFILIATION_TOKEN_PATTERN: regex::Regex = regex::Regex::new(r#"^[0-9a-f]{16}-[0-9a-f]{64}$"#).unwrap();
-const TOKEN_PATTERN: regex::Regex = regex::Regex::new(r#"^[0-9a-f]{16}-[0-9A-Za-z]{3,16}-[0-9a-f]{64}$"#).unwrap();
-static CONTEST_PATTERN: regex::Regex = regex::Regex::new(r#"^[-\w]+$"#).unwrap();
-
 pub fn validate_atcoder_id(atcoder_id: &str) -> bool {
-    ATCODER_ID_PATTERN.is_match(atcoder_id)
+    regex::Regex::new(r#"^[0-9A-Za-z]{3,16}$"#).unwrap().is_match(atcoder_id)
 }
 
-fn token_hash(time: u64, atcoder_id: &str, salt: &str) -> String {
-    let time_str = format!("{time:016x}");
+fn token_hash(time_sec: u64, atcoder_id: &str, salt: &str) -> String {
     let mut plaintext = String::new();
-    plaintext.push_str(&time_str);
+    plaintext.push_str(&format!("{time_sec:016x}"));
     plaintext.push(':');
     plaintext.push_str(atcoder_id);
     plaintext.push(':');
@@ -23,13 +17,14 @@ fn token_hash(time: u64, atcoder_id: &str, salt: &str) -> String {
 pub fn create_affiliation_token(time_sec: u64, atcoder_id: &str) -> String {
     let salt = std::env::var("EDITORIAL_VOTING_AFFILIATION_TOKEN_SALT").unwrap();
     let mut affiliation_token = String::new();
-    affiliation_token.push_str(&format!("{time_sec:x}"));
+    affiliation_token.push_str(&format!("{time_sec:016x}"));
+    affiliation_token.push('-');
     affiliation_token.push_str(&token_hash(time_sec, atcoder_id, &salt));
     affiliation_token
 }
 
 pub fn validate_affiliation_token(atcoder_id: &str, affiliation_token: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if !validate_atcoder_id(atcoder_id) || !AFFILIATION_TOKEN_PATTERN.is_match(affiliation_token) {
+    if !validate_atcoder_id(atcoder_id) || !regex::Regex::new(r#"^[0-9a-f]{16}-[0-9a-f]{64}$"#).unwrap().is_match(affiliation_token) {
         return Err("affiliation_token invalid format".into());
     }
     let salt = std::env::var("EDITORIAL_VOTING_AFFILIATION_TOKEN_SALT")?;
@@ -61,7 +56,7 @@ pub fn create_token(time_sec: u64, atcoder_id: &str) -> String {
 }
 
 pub fn parse_token(token: &str) -> Result<String, Box<dyn std::error::Error>> {
-    if !AFFILIATION_TOKEN_PATTERN.is_match(token) {
+    if !regex::Regex::new(r#"^[0-9a-f]{16}-[0-9A-Za-z]{3,16}-[0-9a-f]{64}$"#).unwrap().is_match(token) {
         return Err("affiliation_token invalid format".into());
     }
     let salt = std::env::var("EDITORIAL_VOTING_TOKEN_SALT")?;
@@ -89,7 +84,7 @@ pub async fn scrape_affiliation(atcoder_id: &str) -> Result<String, Box<dyn std:
 }
 
 pub async fn scrape_editorials(contest: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    if !CONTEST_PATTERN.is_match(&contest) {
+    if !regex::Regex::new(r#"^[-\w]+$"#).unwrap().is_match(&contest) {
         return Err("task invalid format".into());
     }
 

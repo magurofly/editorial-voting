@@ -26,13 +26,14 @@ response: { status: "error", reason: string }
 解説ページの現在のスコアおよび、自分の投票状態を返します。
 
 - `token`: 与えた場合、自分の投票状態を `current_vote` として返します。
+- `contest`: コンテストの ID です。（例: `abc234` ）
 - `editorial`: 解説ページの URL (例: `https://atcoder.jp/contests/abc204/editorial/2027` や `https://blog.hamayanhamayan.com/entry/2021/06/07/024119` )
 - `score`: 投票の総和です。
-- `scoresByRating`: レーティングの段階ごとの投票の総和です。 (例: `{"0-99":1}`)
+<!-- - `scores_by_rating`: レーティングの段階ごとの投票の総和です。 (例: `{"0-99":1}`) -->
 - `current_vote`: `none` => 投票していない, `up` => +1, `down` => -1
 
 ```ts
-request: { token?: string, editorial: string }
+request: { token?: string, contest: string, editorial: string }
 response: { status: "success", score: number, scores_by_rating: Map<string, number>, current_vote?: "none" | "up" | "down" }
 ```
 
