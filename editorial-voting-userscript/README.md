@@ -1,6 +1,6 @@
 # AtCoder Editorial Voting (ユーザースクリプト)
 解説ページに投票することができます。
-![image](https://github.com/magurofly/editorial-voting/assets/54321436/b4510aa7-de84-482c-9401-679a800434db)
+![image](https://github.com/magurofly/editorial-voting/assets/54321436/fa089db3-b2c5-49c4-b2bf-27291bc63b00)
 
 ## インストール
 1. [TamperMonkey](https://www.tampermonkey.net/index.php?locale=en) 等のユーザースクリプトマネージャをインストールしてください。
