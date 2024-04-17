@@ -175,21 +175,50 @@
         // リンク先を正規化する
         const editorial = canonicalizeEditorialLink(link.href);
 
+        // ここのデザインは burioden 様に助けていただきました
+
         const scoreView = document.createElement("span");
-        scoreView.className = "label label-default";
+        Object.assign(scoreView.style, {
+            verticalAlign: "middle",
+            display: "inline-block",
+            boxSizing: "border-box",
+            height: "100%",
+            padding: "1px 5px",
+            lineHeight: "1.5",
+            borderTop: "1px solid #aaa",
+            borderBottom: "1px solid #aaa",
+            background: "transparent",
+            color: "#333",
+            fontSize: "12px",
+        });
         scoreView.textContent = "0";
 
         const btnUpVote = document.createElement("button");
-        btnUpVote.className = "btn btn-xs btn-success";
+        btnUpVote.className = "btn btn-xs btn-warning";
+        Object.assign(btnUpVote.style, {
+            border: "1px solid #aaa",
+            borderRadius: "0 5px 5px 0",
+            height: "100%",
+        });
         btnUpVote.type = "button";
         btnUpVote.textContent = "+";
 
         const btnDownVote = document.createElement("button");
-        btnDownVote.className = "btn btn-xs btn-warning";
+        btnDownVote.className = "btn btn-xs btn-info";
+        Object.assign(btnDownVote.style, {
+            border: "1px solid #aaa",
+            borderRadius: "5px 0 0 5px",
+            height: "100%",
+        });
         btnDownVote.type = "button";
         btnDownVote.textContent = "-";
 
         const buttonGroup = document.createElement("span");
+        Object.assign(buttonGroup.style, {
+            display: "inline-block",
+            height: "1.5em",
+            margin: "0 8px",
+        });
         buttonGroup.appendChild(btnDownVote);
         buttonGroup.appendChild(scoreView);
         buttonGroup.appendChild(btnUpVote);
