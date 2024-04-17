@@ -101,11 +101,21 @@ pub async fn scrape_affiliation(atcoder_id: &str) -> Result<String, Box<dyn std:
     if !validate_atcoder_id(atcoder_id) {
         return Err("invalid atcoder id".into());
     }
-    let res = awc::Client::default().get(format!("https://atcoder.jp/users/{atcoder_id}")).send().await?.body().await?;
+    let res = awc::Client::default().get(format!("https://atcoder.jp/users/{atcoder_id}?lang=en")).send().await?.body().await?;
     let doc = scraper::Html::parse_document(&std::str::from_utf8(&res)?);
-    let selector = scraper::Selector::parse("#main-container > div.row > div.col-md-3.col-sm-12 > table > tbody > tr:nth-child(5) > td")?;
-    let affiliation_element = doc.select(&selector).next().ok_or_else::<String, _>(|| "affiliation not found".into() )?;
-    Ok(affiliation_element.text().collect::<Vec<_>>().join(""))
+    let selector = scraper::Selector::parse("#main-container > div.row > div.col-md-3.col-sm-12 > table > tbody > tr")?;
+    let affiliation = doc.select(&selector)
+        .filter_map(|row| {
+            let mut children = row.child_elements();
+            if children.next()?.text().next()? == "Affiliation" {
+                children.next()?.text().next()
+            } else {
+                None
+            }
+        })
+        .next()
+        .ok_or_else::<String, _>(|| "affiliation not found".into() )?;
+    Ok(affiliation.to_string())
 }
 
 pub async fn scrape_editorials(contest: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
