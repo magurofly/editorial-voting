@@ -132,6 +132,7 @@
                     return;
                 }
                 this.score = data.score;
+                this.elements.scoreView.textContent = this.score;
                 if (data.current_vote) {
                     switch (data.current_vote) {
                         case "up": this.vote = 1; this.setVote(1, false); break;
