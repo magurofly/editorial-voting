@@ -16,7 +16,7 @@ struct Res {
     status: &'static str,
     reason: Option<String>,
     score: Option<i64>,
-    scores_by_rating_level: Option<HashMap<String, i64>>,
+    scores_by_rating: Option<HashMap<String, i64>>,
     current_vote: Option<&'static str>,
 }
 
@@ -31,13 +31,13 @@ async fn inner(req: &Req, conn: &rusqlite::Connection) -> Result<Res, Box<dyn st
             status: "success",
             reason: None,
             score: Some(0),
-            scores_by_rating_level: Some(HashMap::new()),
+            scores_by_rating: Some(HashMap::new()),
             current_vote: user_token.map(|_| "none" ),
         });
     };
 
     let mut score = 0;
-    let mut scores_by_rating_level = HashMap::new();
+    let mut scores_by_rating = HashMap::new();
     let mut current_vote = None;
     let mut statement = conn.prepare("SELECT rating_level, score FROM vote_temp WHERE editorial_id = ?1")?;
     let mut rows = statement.query([editorial_id])?;
@@ -45,7 +45,7 @@ async fn inner(req: &Req, conn: &rusqlite::Connection) -> Result<Res, Box<dyn st
         let level = row.get::<_, i64>(0)?;
         let score_by_level = row.get::<_, i64>(1)?;
         score += score_by_level;
-        scores_by_rating_level.insert(format!("{}-{}", level * 100, level * 100 + 99), score_by_level);
+        scores_by_rating.insert(format!("{}-{}", level * 100, level * 100 + 99), score_by_level);
     }
 
     if let Some(user_token) = user_token {
@@ -65,7 +65,7 @@ async fn inner(req: &Req, conn: &rusqlite::Connection) -> Result<Res, Box<dyn st
         status: "success",
         reason: None,
         score: Some(score),
-        scores_by_rating_level: Some(scores_by_rating_level),
+        scores_by_rating: Some(scores_by_rating),
         current_vote,
     })
 }
@@ -79,7 +79,7 @@ pub async fn route(req: actix_web::web::Json<Req>, data: actix_web::web::Data<Mu
             status: "error",
             reason: Some(reason.to_string()),
             score: None,
-            scores_by_rating_level: None,
+            scores_by_rating: None,
             current_vote: None,
         }),
     }
