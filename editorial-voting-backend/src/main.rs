@@ -27,7 +27,11 @@ async fn main() -> std::io::Result<()> {
     };
 
     actix_web::HttpServer::new(move || {
-        let cors = actix_cors::Cors::default().allow_any_origin().allow_any_method();
+        let cors = actix_cors::Cors::default()
+            .send_wildcard()
+            .allow_any_origin()
+            .allow_any_method()
+            .allow_any_header();
         actix_web::App::new()
             .wrap(cors)
             .app_data(actix_web::web::Data::new(Mutex::new(rusqlite::Connection::open(std::env::var("EDITORIAL_VOTING_DATABASE_PATH").unwrap()).unwrap()) ))
