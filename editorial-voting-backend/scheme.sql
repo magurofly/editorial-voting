@@ -3,9 +3,9 @@ CREATE TABLE users (
     -- atcoder_id =~ /^[0-9A-Za-z]{3,13}$/
     atcoder_id TEXT UNIQUE NOT NULL,
     -- rating in 0 .. 9999
-    rating INTEGER NOT NULL,
+    rating INTEGER,
     -- rating_last_change = unix time
-    rating_last_change NOT NULL
+    rating_last_update INTEGER
 );
 
 CREATE TABLE editorials (
