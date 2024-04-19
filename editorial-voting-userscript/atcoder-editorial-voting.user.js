@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-04-17
+// @version      2024-04-20
 // @description  AtCoderの解説に投票します。
 // @author       magurofly
 // @match        https://atcoder.jp/contests/*/editorial
@@ -40,21 +40,25 @@
     }
 
     async function callApi(name, body) {
-        return await fetch("https://magurofly.zapto.org/" + name, {
+        const result = await fetch("https://magurofly.zapto.org/" + name, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
         }).then(res => res.json());
+        if (result.status == "error") {
+            if (result.reason == "invalid token") {
+                token = null;
+            }
+            throw "Error: " + result.reason;
+        }
+        return result;
     }
 
     async function login() {
         // 所属トークンを得る
         const affiliationTokenData = await callApi("create-affiliation-token", { atcoder_id: unsafeWindow.userScreenName });
-        if (affiliationTokenData.status == "error") {
-            throw data.reason;
-        }
         const affiliation_token = affiliationTokenData.affiliation_token;
 
         // 設定を得る
@@ -77,9 +81,6 @@
 
         // 認証する
         const tokenData = await callApi("create-token", { atcoder_id: unsafeWindow.userScreenName, affiliation_token });
-        if (tokenData.status == "error") {
-            throw data.reason;
-        }
 
         // 所属を元に戻す
         data["ui.Affiliation"] = oldAffiliation;
@@ -110,6 +111,49 @@
         });
     }
 
+    // レート分布を表示するやつ
+    class Histogram {
+        constructor() {
+            this.canvas = document.createElement("canvas");
+            this.canvas.width = 320;
+            this.canvas.height = 160;
+            this.ctx = this.canvas.getContext("2d");
+            this.dist = [0, 0, 0, 0, 0, 0, 0, 0];
+            this.draw();
+        }
+
+        setRatingDistribution(dist) {
+            this.dist = dist;
+            this.draw();
+        }
+
+        draw() {
+            const colors = ["#808080", "#804000", "#008000", "#00C0C0", "#0000FF", "#C0C000", "#FF8000", "#FF0000"];
+            const vHalf = this.canvas.height / 2;
+            const vUnit = (vHalf - 16) / Math.max(4, ...this.dist.map(y => Math.abs(y)));
+            const hUnit = this.canvas.width / 8;
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = "#333";
+            this.ctx.fillRect(0, this.canvas.height / 2 - 1, hUnit * 8, 2);
+            this.ctx.font = "12px serif";
+            this.ctx.textAlign = "center";
+            for (let i = 0; i < 8; i++) {
+                const x = hUnit * i;
+                const value = this.dist[i];
+                this.ctx.fillStyle = colors[i];
+                if (value > 0) {
+                    this.ctx.fillRect(x, vHalf - 1 - vUnit * value, hUnit, vUnit * value - 1);
+                    this.ctx.fillStyle = "#333";
+                    this.ctx.fillText(value.toString(), x + hUnit / 2, vHalf - 4 - vUnit * value);
+                } else if (value < 0) {
+                    this.ctx.fillRect(x, vHalf + 1 + vUnit * -value, hUnit, vUnit * value - 1);
+                    this.ctx.fillStyle = "#333";
+                    this.ctx.fillText(value.toString(), x + hUnit / 2, vHalf + 16 + vUnit * -value);
+                }
+            }
+        }
+    }
+
     // 解説リンクにスコアと投票ボタンを表示する
     class Voting {
         constructor(editorial, elements) {
@@ -120,53 +164,41 @@
 
             elements.btnUpVote.onclick = this.setVote.bind(this, 1);
             elements.btnDownVote.onclick = this.setVote.bind(this, -1);
-
-            this.setVote(0, false);
-            this.getVote();
         }
 
-        async getVote() {
-            callApi("status", { editorial: this.editorial, token }).then(data => {
-                if (data.status == "error") {
-                    console.error("AtCoderEditorialVoting: Error: " + data.reason);
-                    return;
-                }
-                this.score = data.score;
-                this.elements.scoreView.textContent = this.score;
-                if (data.current_vote) {
-                    switch (data.current_vote) {
-                        case "up": this.vote = 1; this.setVote(1, false); break;
-                        case "down": this.vote = -1; this.setVote(-1, false); break;
-                        default: this.vote = 0; this.setVote(0, false);
-                    }
-                }
-            });
-        }
-
-        async setVote(vote, send = true) {
-            this.score -= this.vote;
+        setCurrentVote(score, vote, dist) {
             this.vote = vote;
-            this.score += vote;
+            this.score = score;
+            this.elements.scoreView.textContent = score;
+            this.elements.histogram.setRatingDistribution(dist);
             if (vote == 1) {
                 this.elements.btnUpVote.classList.add("active");
                 this.elements.btnUpVote.onclick = this.setVote.bind(this, 0);
                 this.elements.btnDownVote.classList.remove("active");
                 this.elements.btnDownVote.onclick = this.setVote.bind(this, -1);
-                if (send) await sendVote(this.editorial, "up");
             } else if (vote == -1) {
                 this.elements.btnUpVote.classList.remove("active");
                 this.elements.btnUpVote.onclick = this.setVote.bind(this, 1);
                 this.elements.btnDownVote.classList.add("active");
                 this.elements.btnDownVote.onclick = this.setVote.bind(this, 0);
-                if (send) await sendVote(this.editorial, "down");
             } else {
                 this.elements.btnUpVote.classList.remove("active");
                 this.elements.btnUpVote.onclick = this.setVote.bind(this, 1);
                 this.elements.btnDownVote.classList.remove("active");
                 this.elements.btnDownVote.onclick = this.setVote.bind(this, -1);
-                if (send) await sendVote(this.editorial, "none");
             }
-            this.elements.scoreView.textContent = this.score;
+        }
+
+        async setVote(vote) {
+            this.score += vote - this.vote;
+            this.setCurrentVote(this.score, this.vote);
+            if (vote == 1) {
+                await sendVote(this.editorial, "up");
+            } else if (vote == -1) {
+                await sendVote(this.editorial, "down");
+            } else {
+                await sendVote(this.editorial, "none");
+            }
         }
     }
 
@@ -224,6 +256,43 @@
         buttonGroup.appendChild(btnUpVote);
         link.parentElement.insertBefore(buttonGroup, link);
 
-        votes.push(new Voting(editorial, { scoreView, btnUpVote, btnDownVote, buttonGroup }));
+        // キャンバスをつくる
+        const anchor = buttonGroup.getBoundingClientRect();
+        const histogram = new Histogram();
+        Object.assign(histogram.canvas.style, {
+            position: "absolute",
+            left: anchor.x + anchor.width * 0.5 + "px",
+            top: anchor.y + anchor.height + "px",
+            display: "none",
+            border: "1px solid #aaa",
+            background: "#fff",
+            boxShadow: "10px 5px 5px #333",
+        });
+        document.body.appendChild(histogram.canvas);
+        scoreView.addEventListener("mouseover", () => {
+            histogram.canvas.style.display = "block";
+        });
+        scoreView.addEventListener("mouseout", () => {
+            histogram.canvas.style.display = "none";
+        });
+
+        votes.push(new Voting(editorial, { scoreView, btnUpVote, btnDownVote, buttonGroup, histogram }));
     }
+
+    callApi("statuses", { token, editorials: votes.map(v => v.editorial) }).then(res => {
+        for (let i = 0; i < res.results.length; i++) {
+            const { score, scores_by_rating, current_vote } = res.results[i];
+            const vote = current_vote == "up" ? 1 : current_vote == "down" ? -1 : 0;
+            const dist = [0, 0, 0, 0, 0, 0, 0, 0];
+            for (const [key, value] of Object.entries(scores_by_rating)) {
+                const rating = parseInt(key.split("-")[0]);
+                if (rating < 2800) {
+                    dist[Math.trunc(rating / 400)] += value;
+                } else {
+                    dist[7] += value;
+                }
+            }
+            votes[i].setCurrentVote(score, vote, dist);
+        }
+    });
 })();
