@@ -35,6 +35,7 @@ async fn main() -> std::io::Result<()> {
             .service(api::create_token::route)
             .service(api::vote::route)
             .service(api::status::route)
+            .service(api::statuses::route)
             .service(index)
     })
         .bind_rustls_0_22(std::env::var("EDITORIAL_VOTING_BIND").unwrap(), tls_config)?
