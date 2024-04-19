@@ -3,6 +3,7 @@
 // @namespace    https://atcoder.jp/
 // @version      2024-04-20
 // @description  AtCoderの解説に投票します。
+// @license      MIT
 // @author       magurofly
 // @match        https://atcoder.jp/contests/*/editorial
 // @match        https://atcoder.jp/contests/*/editorial?*
