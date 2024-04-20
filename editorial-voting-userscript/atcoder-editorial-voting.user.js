@@ -262,8 +262,8 @@
         const histogram = new Histogram();
         Object.assign(histogram.canvas.style, {
             position: "absolute",
-            left: anchor.x + anchor.width * 0.5 + "px",
-            top: anchor.y + anchor.height + "px",
+            left: unsafeWindow.scrollX + anchor.x + anchor.width * 0.5 + "px",
+            top: unsafeWindow.scrollY + anchor.y + anchor.height + "px",
             display: "none",
             border: "1px solid #aaa",
             background: "#fff",
