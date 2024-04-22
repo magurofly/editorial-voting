@@ -128,7 +128,7 @@
         }
 
         setRatingDistribution(dist) {
-            this.dist = dist;
+            if (dist) this.dist = dist;
             this.draw();
         }
 
