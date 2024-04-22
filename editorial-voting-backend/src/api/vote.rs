@@ -33,7 +33,11 @@ async fn inner(req: &Req, db: &Mutex<rusqlite::Connection>) -> Result<Res, Box<d
 
     // check if editorial is already registered
     let editorial_id = {
-        if let Ok(editorial_id) = db.lock().unwrap().query_row("SELECT id FROM editorials WHERE editorial = ?1", [&req.editorial], |row| row.get::<_, usize>(0) ) {
+        let editorial_id = {
+            let conn = db.lock().unwrap();
+            conn.query_row("SELECT id FROM editorials WHERE editorial = ?1", [&req.editorial], |row| row.get::<_, usize>(0) )
+        };
+        if let Ok(editorial_id) = editorial_id {
             editorial_id
         } else {
             // register all editorials from same contest
@@ -61,7 +65,11 @@ async fn inner(req: &Req, db: &Mutex<rusqlite::Connection>) -> Result<Res, Box<d
     let new_rating =
         if new_vote != 0 {
             // 投票する場合レートを取得
-            if let Ok(res) = db.lock().unwrap().query_row("SELECT rating, rating_last_update FROM users WHERE id = ?1", [user_token.user_id], |row| (0 .. 2).map(|i|  row.get::<_, i64>(i) ).collect::<Result<Vec<_>, _>>() ) {
+            let rating_and_last_update = {
+                let conn = db.lock().unwrap();
+                conn.query_row("SELECT rating, rating_last_update FROM users WHERE id = ?1", [user_token.user_id], |row| (0 .. 2).map(|i|  row.get::<_, i64>(i) ).collect::<Result<Vec<_>, _>>() )
+            };
+            if let Ok(res) = rating_and_last_update {
                 let rating = res[0];
                 let rating_last_update = std::time::SystemTime::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(res[1] as u64)).unwrap();
                 let now = std::time::SystemTime::now();
@@ -69,7 +77,8 @@ async fn inner(req: &Req, db: &Mutex<rusqlite::Connection>) -> Result<Res, Box<d
                 if now.duration_since(rating_last_update)? > std::time::Duration::from_secs(60 * 60) {
                     let AtCoderUserDetails { rating } = atcoder_api::scrape_user(&user_token.atcoder_id).await?;
                     let now_time = now.duration_since(std::time::SystemTime::UNIX_EPOCH)?.as_secs() as i64;
-                    db.lock().unwrap().execute("UPDATE users SET rating = ?1, rating_last_update = ?2 WHERE id = ?3", [rating, now_time, user_token.user_id as i64])?;
+                    let conn = db.lock().unwrap();
+                    conn.execute("UPDATE users SET rating = ?1, rating_last_update = ?2 WHERE id = ?3", [rating, now_time, user_token.user_id as i64])?;
                     rating
                 } else {
                     rating
@@ -78,7 +87,8 @@ async fn inner(req: &Req, db: &Mutex<rusqlite::Connection>) -> Result<Res, Box<d
                 // update rating if null
                 let AtCoderUserDetails { rating } = atcoder_api::scrape_user(&user_token.atcoder_id).await?;
                 let now_time = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH)?.as_secs() as i64;
-                db.lock().unwrap().execute("UPDATE users SET rating = ?1, rating_last_update = ?2 WHERE id = ?3", [rating, now_time, user_token.user_id as i64])?;
+                let conn = db.lock().unwrap();
+                conn.execute("UPDATE users SET rating = ?1, rating_last_update = ?2 WHERE id = ?3", [rating, now_time, user_token.user_id as i64])?;
                 rating
             }
         } else {
