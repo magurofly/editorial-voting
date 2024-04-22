@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-04-21
+// @version      2024-04-22
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -9,6 +9,7 @@
 // @match        https://atcoder.jp/contests/*/editorial?*
 // @match        https://atcoder.jp/contests/*/tasks/*/editorial
 // @match        https://atcoder.jp/contests/*/tasks/*/editorial?*
+// @match        https://atcoder.jp/contests/*/editorial/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=atcoder.jp
 // @grant        unsafeWindow
 // @grant        GM_getValue
@@ -18,6 +19,9 @@
 // AtCoder で定義されている以下の変数を使用します
 // - contestScreenName
 // - userScreenName
+// 以下のサイトにアクセスします
+// - https://atcoder.jp/*
+// - https://magurofly.zapto.org/*
 (function() {
     "use strict";
 
@@ -113,12 +117,12 @@
     }
 
     // レート分布を表示するやつ
-    class Histogram {
+    class HistogramComponent {
         constructor() {
-            this.canvas = document.createElement("canvas");
-            this.canvas.width = 320;
-            this.canvas.height = 160;
-            this.ctx = this.canvas.getContext("2d");
+            this.element = document.createElement("canvas");
+            this.element.width = 320;
+            this.element.height = 160;
+            this.ctx = this.element.getContext("2d");
             this.dist = [0, 0, 0, 0, 0, 0, 0, 0];
             this.draw();
         }
@@ -130,12 +134,12 @@
 
         draw() {
             const colors = ["#808080", "#804000", "#008000", "#00C0C0", "#0000FF", "#C0C000", "#FF8000", "#FF0000"];
-            const vHalf = this.canvas.height / 2;
+            const vHalf = this.element.height / 2;
             const vUnit = (vHalf - 16) / Math.max(4, ...this.dist.map(y => Math.abs(y)));
-            const hUnit = this.canvas.width / 8;
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            const hUnit = this.element.width / 8;
+            this.ctx.clearRect(0, 0, this.element.width, this.element.height);
             this.ctx.fillStyle = "#333";
-            this.ctx.fillRect(0, this.canvas.height / 2 - 1, hUnit * 8, 2);
+            this.ctx.fillRect(0, this.element.height / 2 - 1, hUnit * 8, 2);
             this.ctx.font = "12px serif";
             this.ctx.textAlign = "center";
             for (let i = 0; i < 8; i++) {
@@ -156,45 +160,118 @@
     }
 
     // 解説リンクにスコアと投票ボタンを表示する
-    class Voting {
-        constructor(editorial, elements) {
-            this.editorial = editorial;
-            this.elements = elements;
+    // ここのデザインは burioden 様に助けていただきました
+    class VoteComponent {
+        constructor(editorial) {
+            this.element = document.createElement("span");
+
+            this.editorial = canonicalizeEditorialLink(editorial);
+
             this.score = 0;
             this.vote = 0;
             this.dist = [0, 0, 0, 0, 0, 0, 0, 0];
+            this.scoreView = document.createElement("span");
+            Object.assign(this.scoreView.style, {
+                verticalAlign: "middle",
+                display: "inline-block",
+                boxSizing: "border-box",
+                height: "100%",
+                padding: "1px 5px",
+                lineHeight: "1.5",
+                borderTop: "1px solid #aaa",
+                borderBottom: "1px solid #aaa",
+                background: "transparent",
+                color: "#333",
+            });
+            this.scoreView.textContent = "0";
+    
+            this.btnUpVote = document.createElement("button");
+            this.btnUpVote.className = "btn btn-xs btn-warning";
+            Object.assign(this.btnUpVote.style, {
+                border: "1px solid #aaa",
+                borderRadius: "0 5px 5px 0",
+                height: "100%",
+                fontSize: "inherit",
+            });
+            this.btnUpVote.type = "button";
+            this.btnUpVote.textContent = "+";
+            this.btnUpVote.onclick = this.setVote.bind(this, 1);
+    
+            this.btnDownVote = document.createElement("button");
+            this.btnDownVote.className = "btn btn-xs btn-info";
+            Object.assign(this.btnDownVote.style, {
+                border: "1px solid #aaa",
+                borderRadius: "5px 0 0 5px",
+                height: "100%",
+                fontSize: "inherit",
+            });
+            this.btnDownVote.type = "button";
+            this.btnDownVote.textContent = "-";
+            this.btnDownVote.onclick = this.setVote.bind(this, -1);
 
-            elements.btnUpVote.onclick = this.setVote.bind(this, 1);
-            elements.btnDownVote.onclick = this.setVote.bind(this, -1);
+            // キャンバスをつくる
+            this.histogram = new HistogramComponent();
+            Object.assign(this.histogram.element.style, {
+                position: "fixed",
+                zIndex: 9999,
+                display: "none",
+                border: "1px solid #aaa",
+                background: "#fff",
+                boxShadow: "10px 5px 5px #333",
+            });
+            this.scoreView.addEventListener("mouseover", () => {
+                const bounds = this.scoreView.getBoundingClientRect();
+                this.histogram.left = `${bounds.x + bounds.width * 0.5}px`;
+                this.histogram.top = `${bounds.y + bounds.height}px`;
+                this.histogram.element.style.display = "block";
+            });
+            this.scoreView.addEventListener("mouseout", () => {
+                this.histogram.element.style.display = "none";
+            });
+    
+            Object.assign(this.element.style, {
+                position: "relative",
+                overflow: "visible",
+                display: "inline-block",
+                height: "1.5em",
+                margin: "0 8px",
+                fontSize: "12px",
+            });
+
+            // 子供を追加
+            this.element.appendChild(this.btnDownVote);
+            this.element.appendChild(this.scoreView);
+            this.element.appendChild(this.btnUpVote);
+            this.element.appendChild(this.histogram.element);
         }
 
         setCurrentVote(score, vote, dist) {
             this.vote = vote;
             this.score = score;
             this.dist = dist;
-            this.elements.scoreView.textContent = score;
-            this.elements.histogram.setRatingDistribution(dist);
+            this.scoreView.textContent = score;
+            this.histogram.setRatingDistribution(dist);
             if (vote == 1) {
-                this.elements.btnUpVote.classList.add("active");
-                this.elements.btnUpVote.onclick = this.setVote.bind(this, 0);
-                this.elements.btnDownVote.classList.remove("active");
-                this.elements.btnDownVote.onclick = this.setVote.bind(this, -1);
+                this.btnUpVote.classList.add("active");
+                this.btnUpVote.onclick = this.setVote.bind(this, 0);
+                this.btnDownVote.classList.remove("active");
+                this.btnDownVote.onclick = this.setVote.bind(this, -1);
             } else if (vote == -1) {
-                this.elements.btnUpVote.classList.remove("active");
-                this.elements.btnUpVote.onclick = this.setVote.bind(this, 1);
-                this.elements.btnDownVote.classList.add("active");
-                this.elements.btnDownVote.onclick = this.setVote.bind(this, 0);
+                this.btnUpVote.classList.remove("active");
+                this.btnUpVote.onclick = this.setVote.bind(this, 1);
+                this.btnDownVote.classList.add("active");
+                this.btnDownVote.onclick = this.setVote.bind(this, 0);
             } else {
-                this.elements.btnUpVote.classList.remove("active");
-                this.elements.btnUpVote.onclick = this.setVote.bind(this, 1);
-                this.elements.btnDownVote.classList.remove("active");
-                this.elements.btnDownVote.onclick = this.setVote.bind(this, -1);
+                this.btnUpVote.classList.remove("active");
+                this.btnUpVote.onclick = this.setVote.bind(this, 1);
+                this.btnDownVote.classList.remove("active");
+                this.btnDownVote.onclick = this.setVote.bind(this, -1);
             }
         }
 
         async setVote(vote) {
             this.score += vote - this.vote;
-            this.setCurrentVote(this.score, this.vote, this.dist);
+            this.setCurrentVote(this.score, vote, this.dist);
             if (vote == 1) {
                 await sendVote(this.editorial, "up");
             } else if (vote == -1) {
@@ -206,80 +283,17 @@
     }
 
     const votes = [];
-    for (const link of unsafeWindow.document.querySelectorAll("#main-container a[rel=noopener]")) {
-        // リンク先を正規化する
-        const editorial = canonicalizeEditorialLink(link.href);
-
-        // ここのデザインは burioden 様に助けていただきました
-
-        const scoreView = document.createElement("span");
-        Object.assign(scoreView.style, {
-            verticalAlign: "middle",
-            display: "inline-block",
-            boxSizing: "border-box",
-            height: "100%",
-            padding: "1px 5px",
-            lineHeight: "1.5",
-            borderTop: "1px solid #aaa",
-            borderBottom: "1px solid #aaa",
-            background: "transparent",
-            color: "#333",
-            fontSize: "12px",
-        });
-        scoreView.textContent = "0";
-
-        const btnUpVote = document.createElement("button");
-        btnUpVote.className = "btn btn-xs btn-warning";
-        Object.assign(btnUpVote.style, {
-            border: "1px solid #aaa",
-            borderRadius: "0 5px 5px 0",
-            height: "100%",
-        });
-        btnUpVote.type = "button";
-        btnUpVote.textContent = "+";
-
-        const btnDownVote = document.createElement("button");
-        btnDownVote.className = "btn btn-xs btn-info";
-        Object.assign(btnDownVote.style, {
-            border: "1px solid #aaa",
-            borderRadius: "5px 0 0 5px",
-            height: "100%",
-        });
-        btnDownVote.type = "button";
-        btnDownVote.textContent = "-";
-
-        const buttonGroup = document.createElement("span");
-        Object.assign(buttonGroup.style, {
-            display: "inline-block",
-            height: "1.5em",
-            margin: "0 8px",
-        });
-        buttonGroup.appendChild(btnDownVote);
-        buttonGroup.appendChild(scoreView);
-        buttonGroup.appendChild(btnUpVote);
-        link.parentElement.insertBefore(buttonGroup, link);
-
-        // キャンバスをつくる
-        const anchor = buttonGroup.getBoundingClientRect();
-        const histogram = new Histogram();
-        Object.assign(histogram.canvas.style, {
-            position: "absolute",
-            left: unsafeWindow.scrollX + anchor.x + anchor.width * 0.5 + "px",
-            top: unsafeWindow.scrollY + anchor.y + anchor.height + "px",
-            display: "none",
-            border: "1px solid #aaa",
-            background: "#fff",
-            boxShadow: "10px 5px 5px #333",
-        });
-        document.body.appendChild(histogram.canvas);
-        scoreView.addEventListener("mouseover", () => {
-            histogram.canvas.style.display = "block";
-        });
-        scoreView.addEventListener("mouseout", () => {
-            histogram.canvas.style.display = "none";
-        });
-
-        votes.push(new Voting(editorial, { scoreView, btnUpVote, btnDownVote, buttonGroup, histogram }));
+    if (/\/editorial$/.test(location.pathname)) {
+        for (const link of unsafeWindow.document.querySelectorAll("#main-container a[rel=noopener]")) {
+            const vote = new VoteComponent(link.href);
+            link.parentElement.insertBefore(vote.element, link);
+            votes.push(vote);
+        }
+    }
+    if (/\/editorial\/\d+$/.test(location.pathname)) {
+        const vote = new VoteComponent(location.href);
+        document.querySelector("#main-container > div.row > div:nth-child(2) > h2").appendChild(vote.element);
+        votes.push(vote);
     }
 
     callApi("statuses", { token, editorials: votes.map(v => v.editorial) }).then(res => {
