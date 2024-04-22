@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-04-20
+// @version      2024-04-21
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -162,6 +162,7 @@
             this.elements = elements;
             this.score = 0;
             this.vote = 0;
+            this.dist = [0, 0, 0, 0, 0, 0, 0, 0];
 
             elements.btnUpVote.onclick = this.setVote.bind(this, 1);
             elements.btnDownVote.onclick = this.setVote.bind(this, -1);
@@ -170,6 +171,7 @@
         setCurrentVote(score, vote, dist) {
             this.vote = vote;
             this.score = score;
+            this.dist = dist;
             this.elements.scoreView.textContent = score;
             this.elements.histogram.setRatingDistribution(dist);
             if (vote == 1) {
@@ -192,7 +194,7 @@
 
         async setVote(vote) {
             this.score += vote - this.vote;
-            this.setCurrentVote(this.score, this.vote);
+            this.setCurrentVote(this.score, this.vote, this.dist);
             if (vote == 1) {
                 await sendVote(this.editorial, "up");
             } else if (vote == -1) {
