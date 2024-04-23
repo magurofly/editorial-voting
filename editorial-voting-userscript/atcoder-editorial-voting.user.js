@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-04-22
+// @version      2024-04-23
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -221,8 +221,8 @@
             });
             this.scoreView.addEventListener("mouseover", () => {
                 const bounds = this.scoreView.getBoundingClientRect();
-                this.histogram.left = `${bounds.x + bounds.width * 0.5}px`;
-                this.histogram.top = `${bounds.y + bounds.height}px`;
+                this.histogram.element.style.left = `${bounds.x + bounds.width * 0.5}px`;
+                this.histogram.element.style.top = `${bounds.y + bounds.height}px`;
                 this.histogram.element.style.display = "block";
             });
             this.scoreView.addEventListener("mouseout", () => {
