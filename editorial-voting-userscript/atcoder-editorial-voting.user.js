@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-04-23
+// @version      2024-07-19
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -21,7 +21,7 @@
 // - userScreenName
 // 以下のサイトにアクセスします
 // - https://atcoder.jp/*
-// - https://magurofly.zapto.org/*
+// - https://magurofly.f5.si/*
 (function() {
     "use strict";
 
@@ -45,7 +45,7 @@
     }
 
     async function callApi(name, body) {
-        const result = await fetch("https://magurofly.zapto.org/" + name, {
+        const result = await fetch("https://magurofly.f5.si/" + name, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
