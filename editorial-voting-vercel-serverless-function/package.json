@@ -1,0 +1,14 @@
+{
+  "name": "editorial-voting-vercel-serverless-function",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "vercel-rust": "^4.0.8"
+  }
+}
