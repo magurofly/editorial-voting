@@ -21,6 +21,7 @@ reqwest = { version = "0.12.12" }
 scraper = "0.22.0"
 tokio-postgres = "0.7.13"
 postgres = "0.19.10"
+tower-service = "0.3.3"
 
 [lib]
 path = "src-rs/lib.rs"

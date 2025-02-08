@@ -1,29 +1,63 @@
-pub async fn get_or_insert_user(atcoder_id: &str) -> Result<u32, Box<dyn std::error::Error>> {
-    let database_url = std::env::var("EDITORIAL_VOTING_DATABASE_URL")?;
-    let mut client = postgres::Client::connect(&database_url, postgres::NoTls)?;
+use std::{future::Future, sync::{Arc, Mutex}, task::{Context, Poll}};
 
-    client.execute("INSERT INTO users(atcoder_id) VALUES($1) ON CONFLICT DO NOTHING;", &[&atcoder_id])?;
+pub struct DatabaseMiddleware {
+    client_mutex: Arc<Mutex<Option<tokio_postgres::Client>>>,
+    handle: tokio::task::JoinHandle<()>,
+}
+impl DatabaseMiddleware {
+    pub fn new() -> Self {
+        let database_url = std::env::var("EDITORIAL_VOTING_DATABASE_URL").unwrap();
+        let client_mutex = Arc::new(Mutex::new(None));
+        let handle = {
+            let client_mutex_in_pooling_thread = client_mutex.clone();
+            tokio::spawn(async move {
+                let client_mutex = client_mutex_in_pooling_thread;
+                loop {
+                    let (client, connection) = tokio_postgres::connect(&database_url, tokio_postgres::NoTls).await.unwrap();
+                    *client_mutex.lock().unwrap() = Some(client);
+                    if let Err(reason) = connection.await {
+                        println!("Error in DatabaseMiddleware: {reason}");
+                    }
+                }
+            })
+        };
+    
+        Self {
+            client_mutex,
+            handle,
+        }
+    }
 
-    let rows = client.query("SELECT id FROM users WHERE atcoder_id = $1;", &[&atcoder_id])?;
-    let Some(row) = rows.get(0) else { return Err("user not found".into()) };
+    pub fn service_fn<T>(&self, f: T) -> DatabaseMiddlewareServiceFn<T> {
+        DatabaseMiddlewareServiceFn {
+            f,
+            client_mutex: self.client_mutex.clone(),
+        }
+    }
 
-    Ok(row.get::<_, u32>(0))
+    pub async fn join(self) -> Result<(), tokio::task::JoinError> {
+        self.handle.await
+    }
 }
 
-pub async fn list_users() -> Result<String, Box<dyn std::error::Error>> {
-    let database_url = std::env::var("EDITORIAL_VOTING_DATABASE_URL")?;
-    let (client, connection) = tokio_postgres::connect(&database_url, tokio_postgres::NoTls).await?;
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("connection error: {e}");
-        }
-    });
+pub struct DatabaseMiddlewareServiceFn<T> {
+    f: T,
+    client_mutex: Arc<Mutex<Option<tokio_postgres::Client>>>,
+}
+impl<T, F, Request, R, E> tower_service::Service<Request> for DatabaseMiddlewareServiceFn<T>
+where
+    T: FnMut((Request, Arc<Mutex<Option<tokio_postgres::Client>>>)) -> F,
+    F: Future<Output = Result<R, E>>,
+{
+    type Response = R;
+    type Error = E;
+    type Future = F;
 
-    let rows = client.query("SELECT * FROM users;", &[]).await?;
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), E>> {
+        Ok(()).into()
+    }
 
-    Ok(rows.into_iter().map(|row| {
-        let user_id = row.get::<_, u32>(0);
-        let atcoder_id = row.get::<_, String>(1);
-        format!("{user_id}:{atcoder_id}")
-    }).collect::<Vec<_>>().join("\n"))
+    fn call(&mut self, req: Request) -> Self::Future {
+        (self.f)((req, self.client_mutex.clone()))
+    }
 }
