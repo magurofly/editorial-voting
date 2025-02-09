@@ -7,7 +7,7 @@ pub async fn with_database<P: 'static + Send, T: 'static + Send>(f: fn(postgres:
 
         let connector = postgres_openssl::MakeTlsConnector::new(builder.build());
 
-        let client = postgres::Client::connect(&database_url, connector).map_err(|e| e.to_string() )?;
+        let client = postgres::Client::connect(&database_url, connector).map_err(|e| format!("{e:?}") )?;
         f(client, param).map_err(|e| e.to_string() )
     }).await.map_err(|e| e.to_string() )?
 }

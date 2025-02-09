@@ -46,11 +46,28 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
     };
 
     fn use_db(mut client: postgres::Client, req: Req) -> Result<Res, Box<dyn std::error::Error>> {
+        let mut user_token = None;
+        if let Some(token) = req.token.as_ref() {
+            user_token = Some(atcoder_api::parse_token(token)?);
+        }
+
         // get editorial_id
         let Some(editorial_url) = atcoder_api::canonicalize_editorial_url(&req.editorial) else {
             return Err("invalid editorial URL".into());
         };
-        let editorial_id = client.query_one("SELECT id FROM editorials WHERE ", &[&editorial_url])?.get::<_, i32>(0);
+        
+        let rows = client.query("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?;
+        if rows.is_empty() {
+            // 未登録
+            return Ok(Res {
+                status: "success",
+                score: Some(0),
+                scores_by_rating: Some(HashMap::new()),
+                current_vote: user_token.as_ref().map(|_| "none" ),
+                .. Default::default()
+            });
+        }
+        let editorial_id = rows[0].get::<_, i32>(0);
         
         // get score
         let mut score = 0;
@@ -64,15 +81,17 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
         }
 
         let mut current_vote = None;
-        if let Some(token) = req.token.as_ref() {
-            let user_token = atcoder_api::parse_token(token)?;
-    
-            let vote = client.query_one("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?.get::<_, i16>(0);
-            current_vote = Some(match vote {
-                1 => "up",
-                -1 => "down",
-                _ => "none"
-            });
+        if let Some(user_token) = user_token.as_ref() {
+            let rows = client.query("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?;
+            if rows.is_empty() {
+                current_vote = Some("none");
+            } else {
+                current_vote = Some(match rows[0].get::<_, i16>(0) {
+                    1 => "up",
+                    -1 => "down",
+                    _ => "none"
+                });
+            }
         }
     
         Ok(Res {

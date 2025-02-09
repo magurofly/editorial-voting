@@ -65,7 +65,15 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             let Some(editorial_url) = atcoder_api::canonicalize_editorial_url(&editorial) else {
                 return Err("invalid editorial URL".into());
             };
-            let editorial_id = client.query_one("SELECT id FROM editorials WHERE ", &[&editorial_url])?.get::<_, i32>(0);
+            let rows = client.query("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?;
+            if rows.is_empty() {
+                return Ok(SingleRes {
+                    score: 0,
+                    scores_by_rating: HashMap::new(),
+                    current_vote: user_token.as_ref().map(|_| "none" ),
+                });
+            }
+            let editorial_id = rows[0].get::<_, i32>(0);
 
             // get score
             let mut score = 0;
@@ -80,12 +88,16 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             
             let mut current_vote = None;
             if let Some(user_token) = user_token.as_ref() {
-                let vote = client.query_one("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?.get::<_, i16>(0);
-                current_vote = Some(match vote {
-                    1 => "up",
-                    -1 => "down",
-                    _ => "none"
-                });
+                let rows = client.query("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?;
+                if rows.is_empty() {
+                    current_vote = Some("none");
+                } else {
+                    current_vote = Some(match rows[0].get::<_, i16>(0) {
+                        1 => "up",
+                        -1 => "down",
+                        _ => "none"
+                    });
+                }
             }
 
             Ok(SingleRes {

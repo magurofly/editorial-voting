@@ -125,7 +125,7 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             if old_vote != 0 {
                 let rating_level = old_rating / 100;
                 tx.execute("DELETE FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?;
-                tx.execute("UPDATE vote_temp SET score = score + $1 WHERE editorial_id = $2 AND rating_level = $3", &[&-old_vote, &editorial_id, &rating_level])?;
+                tx.execute("UPDATE vote_temp SET score = score - $1 WHERE editorial_id = $2 AND rating_level = $3", &[&(old_vote as i32), &editorial_id, &rating_level])?;
             }
 
             // add if new vote is nonzero
@@ -133,7 +133,7 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
                 tx.execute("INSERT INTO votes(user_id, editorial_id, score, rating) VALUES($1, $2, $3, $4)", &[&user_token.user_id, &editorial_id, &new_vote, &new_rating])?;
                 let rating_level = new_rating / 100;
                 tx.execute("INSERT INTO vote_temp(editorial_id, rating_level, score) VALUES($1, $2, 0) ON CONFLICT DO NOTHING", &[&editorial_id, &rating_level])?;
-                tx.execute("UPDATE vote_temp SET score = score + $1 WHERE editorial_id = $2 AND rating_level = $3", &[&new_vote, &editorial_id, &rating_level])?;
+                tx.execute("UPDATE vote_temp SET score = score + $1 WHERE editorial_id = $2 AND rating_level = $3", &[&(new_vote as i32), &editorial_id, &rating_level])?;
             }
 
             tx.commit()?;

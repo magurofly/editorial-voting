@@ -56,12 +56,12 @@ async fn proc(req: Request) -> Result<String, Box<dyn std::error::Error>> {
     }
 
     // connect database
-    fn use_db(mut client: postgres::Client, atcoder_id: String) -> Result<u32, Box<dyn std::error::Error>> {
+    fn use_db(mut client: postgres::Client, atcoder_id: String) -> Result<i32, Box<dyn std::error::Error>> {
         client.execute("INSERT INTO users(atcoder_id) VALUES($1) ON CONFLICT DO NOTHING", &[&atcoder_id])?;
 
         let row = client.query_one("SELECT id FROM users WHERE atcoder_id = $1", &[&atcoder_id])?;
 
-        Ok(row.get::<_, i32>(0) as u32)
+        Ok(row.get::<_, i32>(0))
     }
     let user_id = database::with_database(use_db, req.atcoder_id.clone()).await?;
 

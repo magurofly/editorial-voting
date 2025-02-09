@@ -44,7 +44,7 @@ pub fn validate_affiliation_token(atcoder_id: &str, affiliation_token: &str) -> 
     Ok(())
 }
 
-fn token_hash(time_sec: u64, atcoder_id: &str, user_id: u32, salt: &str) -> String {
+fn token_hash(time_sec: u64, atcoder_id: &str, user_id: i32, salt: &str) -> String {
     let mut plaintext = String::new();
     plaintext.push_str(&format!("{time_sec:016x}"));
     plaintext.push(':');
@@ -56,7 +56,7 @@ fn token_hash(time_sec: u64, atcoder_id: &str, user_id: u32, salt: &str) -> Stri
     hex::encode(&Sha256::digest(&plaintext.into_bytes()))
 }
 
-pub fn create_token(time_sec: u64, atcoder_id: &str, user_id: u32) -> Result<String, Box<dyn std::error::Error>> {
+pub fn create_token(time_sec: u64, atcoder_id: &str, user_id: i32) -> Result<String, Box<dyn std::error::Error>> {
     let salt = std::env::var("EDITORIAL_VOTING_TOKEN_SALT")?;
     let mut token = String::new();
     token.push_str(&format!("{time_sec:016x}"));
@@ -71,7 +71,7 @@ pub fn create_token(time_sec: u64, atcoder_id: &str, user_id: u32) -> Result<Str
 
 pub struct UserToken {
     pub atcoder_id: String,
-    pub user_id: u32,
+    pub user_id: i32,
     pub time_created: u64,
 }
 
@@ -83,7 +83,7 @@ pub fn parse_token(token: &str) -> Result<UserToken, Box<dyn std::error::Error>>
     let mut split = token.split("-");
     let time_str = split.next().unwrap();
     let atcoder_id = split.next().unwrap();
-    let user_id = u32::from_str_radix(split.next().unwrap(), 10)?;
+    let user_id = i32::from_str_radix(split.next().unwrap(), 10)?;
     let hash_orig = split.next().unwrap();
     let time_sec = u64::from_str_radix(&time_str, 16)?;
     let hash = token_hash(time_sec, atcoder_id, user_id, &salt);
