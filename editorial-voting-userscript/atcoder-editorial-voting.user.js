@@ -63,7 +63,7 @@
 
     async function login() {
         // 所属トークンを得る
-        const affiliationTokenData = await callApi("create-affiliation-token", { atcoder_id: unsafeWindow.userScreenName });
+        const affiliationTokenData = await callApi("create_affiliation_token", { atcoder_id: unsafeWindow.userScreenName });
         const affiliation_token = affiliationTokenData.affiliation_token;
 
         // 設定を得る
@@ -85,7 +85,7 @@
         });
 
         // 認証する
-        const tokenData = await callApi("create-token", { atcoder_id: unsafeWindow.userScreenName, affiliation_token });
+        const tokenData = await callApi("create_token", { atcoder_id: unsafeWindow.userScreenName, affiliation_token });
 
         // 所属を元に戻す
         data["ui.Affiliation"] = oldAffiliation;
