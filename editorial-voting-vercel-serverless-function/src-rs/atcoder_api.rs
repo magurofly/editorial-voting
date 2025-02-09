@@ -149,20 +149,20 @@ pub fn canonicalize_editorial_url(url: &str) -> Option<String> {
     Some(url.to_string())
 }
 
-// pub struct AtCoderUserDetails {
-//     pub rating: i64,
-// }
-// pub async fn scrape_user(atcoder_id: &str) -> Result<AtCoderUserDetails, Box<dyn std::error::Error>> {
-//     if !validate_atcoder_id(atcoder_id) {
-//         return Err("invalid atcoder id".into());
-//     }
+pub struct AtCoderUserDetails {
+    pub rating: i16,
+}
+pub async fn scrape_user(atcoder_id: &str) -> Result<AtCoderUserDetails, Box<dyn std::error::Error>> {
+    if !validate_atcoder_id(atcoder_id) {
+        return Err("invalid atcoder id".into());
+    }
 
-//     let res = awc::Client::default().get(format!("https://atcoder.jp/users/{atcoder_id}")).send().await?.body().await?;
-//     let doc = scraper::Html::parse_document(&std::str::from_utf8(&res)?);
-//     let selector = scraper::Selector::parse("#main-container > div.row > div.col-md-9.col-sm-12 > table > tbody > tr:nth-child(2) > td > span")?;
-//     let rating = doc.select(&selector).next().and_then(|elem| elem.text().next() ).and_then(|rating| i64::from_str_radix(rating, 10).ok() ).unwrap_or(0);
+    let html = reqwest::get(format!("https://atcoder.jp/users/{atcoder_id}")).await?.text().await?;
+    let document = scraper::Html::parse_document(&html);
+    let selector = scraper::Selector::parse("#main-container > div.row > div.col-md-9.col-sm-12 > table > tbody > tr:nth-child(2) > td > span")?;
+    let rating = document.select(&selector).next().and_then(|elem| elem.text().next() ).and_then(|rating| i16::from_str_radix(rating, 10).ok() ).unwrap_or(0);
 
-//     Ok(AtCoderUserDetails {
-//         rating,
-//     })
-// }
+    Ok(AtCoderUserDetails {
+        rating,
+    })
+}

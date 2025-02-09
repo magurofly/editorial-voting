@@ -55,7 +55,7 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
         // get score
         let mut score = 0;
         let mut scores_by_rating = HashMap::new();
-        let rows = client.query("SELECT rating_level, score FROM vote_temp WHERE editorial_id = $1", &[&req.editorial])?;
+        let rows = client.query("SELECT rating_level, score FROM vote_temp WHERE editorial_id = $1", &[&editorial_id])?;
         for row in rows {
             let rating_level = row.get::<_, i16>(0) as usize;
             let score_by_rating_level = row.get::<_, i32>(1) as i64;

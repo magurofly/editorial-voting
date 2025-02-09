@@ -40,3 +40,11 @@ path = "api/create_token.rs"
 [[bin]]
 name = "status"
 path = "api/status.rs"
+
+[[bin]]
+name = "statuses"
+path = "api/statuses.rs"
+
+[[bin]]
+name = "vote"
+path = "api/vote.rs"
