@@ -53,7 +53,8 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             let Some(editorial_url) = atcoder_api::canonicalize_editorial_url(&req.editorial) else {
                 return Err("invalid editorial URL".into());
             };
-            if let Ok(row) = client.query_one("SELECT id FROM editorials WHERE ", &[&editorial_url]) {
+
+            if let Ok(row) = client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url]) {
                 // already registered
                 row.get::<_, i32>(0)
             } else {
@@ -63,12 +64,12 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
                     .enable_all()
                     .build()?
                     .block_on(async move { atcoder_api::scrape_editorials(&contest).await })?;
-                let statement = client.prepare("INSERT INTO editorials(editorial) VALUES($1) ON CONFLICT DO NOTHING;")?;
+                let statement = client.prepare("INSERT INTO editorials(editorial) VALUES($1) ON CONFLICT DO NOTHING")?;
                 for editorial in editorials {
                     client.execute(&statement, &[&editorial])?;
                 }
 
-                client.query_one("SELECT id FROM editorials WHERE ", &[&editorial_url])?.get::<_, i32>(0)
+                client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?.get::<_, i32>(0)
             }
         };
         
@@ -131,7 +132,7 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             if new_vote != 0 {
                 tx.execute("INSERT INTO votes(user_id, editorial_id, score, rating) VALUES($1, $2, $3, $4)", &[&user_token.user_id, &editorial_id, &new_vote, &new_rating])?;
                 let rating_level = new_rating / 100;
-                tx.execute("INSERT INTO vote_temp(editorial_id, rating_level, score) VALUES($1, $2, 0) ON CONFLICT DO NOTHING;", &[&editorial_id, &rating_level])?;
+                tx.execute("INSERT INTO vote_temp(editorial_id, rating_level, score) VALUES($1, $2, 0) ON CONFLICT DO NOTHING", &[&editorial_id, &rating_level])?;
                 tx.execute("UPDATE vote_temp SET score = score + $1 WHERE editorial_id = $2 AND rating_level = $3", &[&new_vote, &editorial_id, &rating_level])?;
             }
 

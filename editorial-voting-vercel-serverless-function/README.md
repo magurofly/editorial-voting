@@ -33,6 +33,21 @@ request: { token?: string, editorial: string }
 response: { status: "success", score: number, scores_by_rating: Map<string, number>, current_vote?: "none" | "up" | "down" }
 ```
 
+### /statuses
+
+`/status` の複数版です。
+
+- `token`: 与えた場合、自分の投票状態を `current_vote` として返します。
+- `editorial`: 解説ページの URL (例: `https://atcoder.jp/contests/abc204/editorial/2027` や `https://blog.hamayanhamayan.com/entry/2021/06/07/024119` )
+- `score`: 投票の総和です。
+- `scores_by_rating`: レーティングの段階ごとの投票の総和です。 (例: `{"0-99":1}`)
+- `current_vote`: `none` => 投票していない, `up` => +1, `down` => -1
+
+```ts
+request: { token?: string, editorials: Array<string> }
+response: { status: "success", results: Array<{ score: number, scores_by_rating: Map<string, number>, current_vote?: "none" | "up" | "down" }> }
+```
+
 ### /create-affiliation-token
 AtCoder アカウントと紐つけるための、所属欄での認証に使う所属トークンを発行します。
 
@@ -62,7 +77,8 @@ response: { status: "success", token: string }
 また、連続して投票する場合、一定時間をおく必要があります。
 
 - `token`: `/create-token` で発行されたトークン
-- `editorial`: 解説ページの URL
+- `contest`: コンテスト ID （例: `abc123`）
+- `editorial`: 解説ページの URL（例: `https://img.atcoder.jp/abc123/editorial.pdf`）
 - `vote`: `none` => 投票しない, `up` => +1, `down` => -1
 
 ```ts
