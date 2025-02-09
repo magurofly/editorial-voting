@@ -119,35 +119,35 @@ pub async fn scrape_affiliation(atcoder_id: &str) -> Result<String, Box<dyn std:
     Ok(affiliation.to_string())
 }
 
-// pub async fn scrape_editorials(contest: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-//     if !regex::Regex::new(r#"^[-\w]+$"#).unwrap().is_match(&contest) {
-//         return Err("contest invalid format".into());
-//     }
-//     let mut editorials = vec![];
-//     for lang in &["ja", "en"] {
-//         let res = awc::Client::default().get(format!("https://atcoder.jp/contests/{contest}/editorial?editorialLang={lang}")).send().await?.body().await?;
-//         let doc = scraper::Html::parse_document(&std::str::from_utf8(&res)?);
-//         let selector = scraper::Selector::parse(r#"#main-container a[rel="noopener"]"#)?;
-//         editorials.extend(doc.select(&selector).filter_map(|link| link.attr("href").and_then(|url| canonicalize_editorial_url(url) ) ));
-//     }
-//     Ok(editorials)
-// }
+pub async fn scrape_editorials(contest: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    if !regex::Regex::new(r#"^[-\w]+$"#).unwrap().is_match(&contest) {
+        return Err("contest invalid format".into());
+    }
+    let mut editorials = vec![];
+    for lang in &["ja", "en"] {
+        let html = reqwest::get(format!("https://atcoder.jp/contests/{contest}/editorial?editorialLang={lang}")).await?.text().await?;
+        let document = scraper::Html::parse_document(&html);
+        let selector = scraper::Selector::parse(r#"#main-container a[rel="noopener"]"#)?;
+        editorials.extend(document.select(&selector).filter_map(|link| link.attr("href").and_then(|url| canonicalize_editorial_url(url) ) ));
+    }
+    Ok(editorials)
+}
 
-// fn canonicalize_editorial_url(url: &str) -> Option<String> {
-//     if url.starts_with("/jump?url=") {
-//         let encoded = url.split_at(10).1;
-//         return Some(urlencoding::decode(encoded).expect("UTF-8").to_string());
-//     }
+pub fn canonicalize_editorial_url(url: &str) -> Option<String> {
+    if url.starts_with("/jump?url=") {
+        let encoded = url.split_at(10).1;
+        return Some(urlencoding::decode(encoded).expect("UTF-8").to_string());
+    }
 
-//     if url.starts_with("/") {
-//         let mut full = String::new();
-//         full.push_str("https://atcoder.jp");
-//         full.push_str(url);
-//         return Some(full);
-//     }
+    if url.starts_with("/") {
+        let mut full = String::new();
+        full.push_str("https://atcoder.jp");
+        full.push_str(url);
+        return Some(full);
+    }
 
-//     Some(url.to_string())
-// }
+    Some(url.to_string())
+}
 
 // pub struct AtCoderUserDetails {
 //     pub rating: i64,

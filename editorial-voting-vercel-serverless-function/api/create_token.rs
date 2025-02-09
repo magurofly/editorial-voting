@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use editorial_voting_vercel_serverless_function::{atcoder_api, database};
 use serde;
 use vercel_runtime::{process_request, process_response, run_service, Body, Error, Request, RequestPayloadExt, Response, ServiceBuilder, StatusCode};
@@ -19,18 +17,16 @@ struct Res {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let middleware = database::DatabaseMiddleware::new();
-
     let handler = ServiceBuilder::new()
         .map_request(process_request)
         .map_response(process_response)
-        .service(middleware.service_fn(handler));
+        .service_fn(handler);
 
     run_service(handler).await
 }
 
-pub async fn handler((req, client_mutex): (Request, Arc<Mutex<Option<tokio_postgres::Client>>>)) -> Result<Response<Body>, Error> {
-    let res = match proc(req, client_mutex).await {
+pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
+    let res = match proc(req).await {
         Ok(token) => Res { status: "success", token: Some(token), .. Default::default() },
         Err(reason) => Res { status: "error", reason: Some(reason.to_string()), .. Default::default() },
     };
@@ -40,7 +36,7 @@ pub async fn handler((req, client_mutex): (Request, Arc<Mutex<Option<tokio_postg
         .body(Body::Text(serde_json::to_string(&res)?))?)
 }
 
-pub async fn proc(req: Request, client_mutex: Arc<Mutex<Option<tokio_postgres::Client>>>) -> Result<String, Box<dyn std::error::Error>> {
+async fn proc(req: Request) -> Result<String, Box<dyn std::error::Error>> {
     let time = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH)?.as_secs();
 
     let Ok(Some(req)) = req.payload::<Req>() else {
@@ -59,15 +55,15 @@ pub async fn proc(req: Request, client_mutex: Arc<Mutex<Option<tokio_postgres::C
         return Err("affiliation token not matched".into());
     }
 
-    let Ok(mut client_opt) = client_mutex.lock() else { return Err("lock error".into()) };
-    let Some(client) = client_opt.as_mut() else { return Err("database client not found".into()) };
+    // connect database
+    fn use_db(mut client: postgres::Client, atcoder_id: String) -> Result<u32, Box<dyn std::error::Error>> {
+        client.execute("INSERT INTO users(atcoder_id) VALUES($1) ON CONFLICT DO NOTHING;", &[&atcoder_id])?;
 
-    client.execute("INSERT INTO users(atcoder_id) VALUES($1) ON CONFLICT DO NOTHING;", &[&req.atcoder_id]).await?;
+        let row = client.query_one("SELECT id FROM users WHERE atcoder_id = $1;", &[&atcoder_id])?;
 
-    let rows = client.query("SELECT id FROM users WHERE atcoder_id = $1;", &[&req.atcoder_id]).await?;
-    let Some(row) = rows.get(0) else { return Err("user not found".into()) };
-
-    let user_id = row.get::<_, i32>(0) as u32;
+        Ok(row.get::<_, i32>(0) as u32)
+    }
+    let user_id = database::with_database(use_db, req.atcoder_id.clone()).await?;
 
     let token = atcoder_api::create_token(time, &req.atcoder_id, user_id)?;
 
