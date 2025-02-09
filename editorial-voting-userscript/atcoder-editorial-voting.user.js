@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2024-07-19
+// @version      2025-02-09
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -21,7 +21,7 @@
 // - userScreenName
 // 以下のサイトにアクセスします
 // - https://atcoder.jp/*
-// - https://magurofly.f5.si/*
+// - https://editorial-voting-vercel-serverless-function.vercel.app/*
 (function() {
     "use strict";
 
@@ -45,7 +45,7 @@
     }
 
     async function callApi(name, body) {
-        const result = await fetch("https://magurofly.f5.si/" + name, {
+        const result = await fetch("https://editorial-voting-vercel-serverless-function.vercel.app/api/" + name, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
