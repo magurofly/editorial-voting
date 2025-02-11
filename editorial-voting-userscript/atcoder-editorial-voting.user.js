@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2025-02-09
+// @version      2025-02-11
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
@@ -108,7 +108,7 @@
             await login();
         }
 
-        callApi("vote", {
+        await callApi("vote", {
             token,
             contest: unsafeWindow.contestScreenName,
             editorial,
@@ -163,8 +163,6 @@
     // ここのデザインは burioden 様に助けていただきました
     class VoteComponent {
         constructor(editorial) {
-            this.element = document.createElement("span");
-
             this.editorial = canonicalizeEditorialLink(editorial);
 
             this.score = 0;
@@ -228,7 +226,23 @@
             this.scoreView.addEventListener("mouseout", () => {
                 this.histogram.element.style.display = "none";
             });
-    
+
+            // 子供を追加
+            this.component = document.createElement("span");
+            this.component.appendChild(this.btnDownVote);
+            this.component.appendChild(this.scoreView);
+            this.component.appendChild(this.btnUpVote);
+            this.component.appendChild(this.histogram.element);
+            this.component.style.display = "none";
+
+            // ローダーを表示
+            this.loader = document.createElement("span");
+            this.loader.className = "glyphicon glyphicon-refresh glyphicon-refresh-animate";
+
+            this.element = document.createElement("span");
+            this.element.appendChild(this.component);
+            this.element.appendChild(this.loader);
+            this.element.className = "editorial-voting-root-component";
             Object.assign(this.element.style, {
                 position: "relative",
                 overflow: "visible",
@@ -237,12 +251,16 @@
                 margin: "0 8px",
                 fontSize: "12px",
             });
+        }
 
-            // 子供を追加
-            this.element.appendChild(this.btnDownVote);
-            this.element.appendChild(this.scoreView);
-            this.element.appendChild(this.btnUpVote);
-            this.element.appendChild(this.histogram.element);
+        setLoading(isLoading) {
+            if (isLoading) {
+                this.component.style.display = "none";
+                this.loader.style.display = "inline-block";
+            } else {
+                this.loader.style.display = "none";
+                this.component.style.display = "inline-block";
+            }
         }
 
         setCurrentVote(score, vote, dist) {
@@ -269,9 +287,25 @@
             }
         }
 
+        async refreshVote() {
+            this.setLoading(true);
+            const { score, scores_by_rating, current_vote } = await callApi("status", { token, editorial: this.editorial });
+            const vote = current_vote == "up" ? 1 : current_vote == "down" ? -1 : 0;
+            const dist = [0, 0, 0, 0, 0, 0, 0, 0];
+            for (const [key, value] of Object.entries(scores_by_rating)) {
+                const rating = parseInt(key.split("-")[0]);
+                if (rating < 2800) {
+                    dist[Math.trunc(rating / 400)] += value;
+                } else {
+                    dist[7] += value;
+                }
+            }
+            this.setCurrentVote(score, vote, dist);
+            this.setLoading(false);
+        }
+
         async setVote(vote) {
             this.score += vote - this.vote;
-            this.setCurrentVote(this.score, vote, this.dist);
             if (vote == 1) {
                 await sendVote(this.editorial, "up");
             } else if (vote == -1) {
@@ -279,8 +313,29 @@
             } else {
                 await sendVote(this.editorial, "none");
             }
+            await this.refreshVote();
         }
     }
+
+    // ローディングアニメーションを追加
+    const css = new CSSStyleSheet();
+    css.insertRule(`
+        .glyphicon-refresh-animate {
+            animation: glyphicon-refresh-animate-spin 1s infinite linear;
+        }
+    `);
+    css.insertRule(`
+        @keyframes glyphicon-refresh-animate-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    `);
+    css.insertRule(`
+        .editorial-voting-root-component .btn.active {
+            filter: grayscale(0.5) brightness(0.8);
+        }
+    `);
+    document.adoptedStyleSheets.push(css);
 
     const votes = [];
     if (/\/editorial$/.test(location.pathname)) {
@@ -310,6 +365,7 @@
                 }
             }
             votes[i].setCurrentVote(score, vote, dist);
+            votes[i].setLoading(false);
         }
     });
 })();
