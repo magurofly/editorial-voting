@@ -67,8 +67,7 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             return Err("invalid editorial URL".into());
         };
         
-        let rows = client.query("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?;
-        if rows.is_empty() {
+        let Some(row) = client.query_opt("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])? else {
             // 未登録
             return Ok(Res {
                 status: "success",
@@ -77,8 +76,8 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
                 current_vote: user_token.as_ref().map(|_| "none" ),
                 .. Default::default()
             });
-        }
-        let editorial_id = rows[0].get::<_, i32>(0);
+        };
+        let editorial_id = row.get::<_, i32>(0);
         
         // get score
         let mut score = 0;
@@ -93,16 +92,11 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
 
         let mut current_vote = None;
         if let Some(user_token) = user_token.as_ref() {
-            let rows = client.query("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?;
-            if rows.is_empty() {
-                current_vote = Some("none");
-            } else {
-                current_vote = Some(match rows[0].get::<_, i16>(0) {
-                    1 => "up",
-                    -1 => "down",
-                    _ => "none"
-                });
-            }
+            current_vote = Some(match client.query_opt("SELECT score FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?.map(|row| row.get::<_, i16>(0) ) {
+                Some(1) => "up",
+                Some(-1) => "down",
+                _ => "none"
+            });
         }
     
         Ok(Res {

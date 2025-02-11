@@ -59,39 +59,6 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
         // get token
         let user_token = atcoder_api::parse_token(&req.token)?;
 
-        // get editorial_id
-        let editorial_id = {
-            let Some(editorial_url) = atcoder_api::canonicalize_editorial_url(&req.editorial) else {
-                return Err("invalid editorial URL".into());
-            };
-
-            if let Ok(row) = client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url]) {
-                // already registered
-                row.get::<_, i32>(0)
-            } else {
-                // register all editorials from same contest
-                let contest = req.contest.clone();
-                let editorials = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()?
-                    .block_on(async move { atcoder_api::scrape_editorials(&contest).await })?;
-                let statement = client.prepare("INSERT INTO editorials(editorial) VALUES($1) ON CONFLICT DO NOTHING")?;
-                for editorial in editorials {
-                    client.execute(&statement, &[&editorial])?;
-                }
-
-                client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?.get::<_, i32>(0)
-            }
-        };
-        
-        // get old vote and rating
-        let (old_vote, old_rating) =
-            if let Ok(row) = client.query_one("SELECT score, rating FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id]) {
-                (row.get::<_, i16>(0), row.get::<_, i16>(1))
-            } else {
-                (0, 0)
-            };
-
         // get new vote
         let new_vote = match req.vote.as_str() {
             "none" => 0i16,
@@ -127,24 +94,47 @@ async fn proc(req: Request) -> Result<Res, Box<dyn std::error::Error>> {
             }
             new_rating = rating.unwrap();
         }
-        
-        // transaction
+
+        // get editorial_id
+        let editorial_id = {
+            let Some(editorial_url) = atcoder_api::canonicalize_editorial_url(&req.editorial) else {
+                return Err("invalid editorial URL".into());
+            };
+
+            if let Ok(row) = client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url]) {
+                // already registered
+                row.get::<_, i32>(0)
+            } else {
+                // register all editorials from same contest
+                let contest = req.contest.clone();
+                let editorials = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()?
+                    .block_on(async move { atcoder_api::scrape_editorials(&contest).await })?;
+                let statement = client.prepare("INSERT INTO editorials(editorial) VALUES($1) ON CONFLICT DO NOTHING")?;
+                for editorial in editorials {
+                    client.execute(&statement, &[&editorial])?;
+                }
+
+                client.query_one("SELECT id FROM editorials WHERE editorial = $1", &[&editorial_url])?.get::<_, i32>(0)
+            }
+        };
+
+        // vote
         {
             let mut tx = client.transaction()?;
+            // if old vote exist, revert vote_temp
+            tx.execute("UPDATE vote_temp SET score = vote_temp.score - CAST(votes.score AS INTEGER) FROM votes WHERE votes.editorial_id = $1 AND votes.user_id = $2 AND vote_temp.editorial_id = $1 AND vote_temp.rating_level = votes.rating / 100", &[&editorial_id, &user_token.user_id])?;
 
-            // remove old vote
-            if old_vote != 0 {
-                let rating_level = old_rating / 100;
+            // apply new vote
+            if new_vote == 0 {
+                // delete vote
                 tx.execute("DELETE FROM votes WHERE user_id = $1 AND editorial_id = $2", &[&user_token.user_id, &editorial_id])?;
-                tx.execute("UPDATE vote_temp SET score = score - $1 WHERE editorial_id = $2 AND rating_level = $3", &[&(old_vote as i32), &editorial_id, &rating_level])?;
-            }
-
-            // add if new vote is nonzero
-            if new_vote != 0 {
-                tx.execute("INSERT INTO votes(user_id, editorial_id, score, rating) VALUES($1, $2, $3, $4)", &[&user_token.user_id, &editorial_id, &new_vote, &new_rating])?;
-                let rating_level = new_rating / 100;
-                tx.execute("INSERT INTO vote_temp(editorial_id, rating_level, score) VALUES($1, $2, 0) ON CONFLICT DO NOTHING", &[&editorial_id, &rating_level])?;
-                tx.execute("UPDATE vote_temp SET score = score + $1 WHERE editorial_id = $2 AND rating_level = $3", &[&(new_vote as i32), &editorial_id, &rating_level])?;
+            } else {
+                // replace old vote by new vote
+                tx.execute("INSERT INTO votes(user_id, editorial_id, score, rating) VALUES($1, $2, $3, $4) ON CONFLICT (user_id, editorial_id) DO UPDATE SET score = $3, rating = $4", &[&user_token.user_id, &editorial_id, &new_vote, &new_rating])?;
+                // update vote_temp
+                tx.execute("INSERT INTO vote_temp(editorial_id, rating_level, score) VALUES($1, $2, $3) ON CONFLICT (editorial_id, rating_level) DO UPDATE SET score = vote_temp.score + $3", &[&editorial_id, &(new_rating / 100), &(new_vote as i32)])?;
             }
 
             tx.commit()?;
