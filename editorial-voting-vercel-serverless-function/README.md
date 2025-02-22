@@ -48,7 +48,7 @@ request: { token?: string, editorials: Array<string> }
 response: { status: "success", results: Array<{ score: number, scores_by_rating: Map<string, number>, current_vote?: "none" | "up" | "down" }> }
 ```
 
-### /create-affiliation-token
+### /create_affiliation_token
 AtCoder アカウントと紐つけるための、所属欄での認証に使う所属トークンを発行します。
 
 ```ts
@@ -56,13 +56,13 @@ request: { atcoder_id: string }
 response: { status: "success", affiliation_token: string }
 ```
 
-### /create-token
+### /create_token
 AtCoder アカウントを認証し、投票用のトークンを発行します。
 
-AtCoder の所属欄に `/create-affiliation-token` で発行された所属トークンが入っている必要があります。
+AtCoder の所属欄に `/create_affiliation_token` で発行された所属トークンが入っている必要があります。
 なお、認証後は所属欄は変更しても構いません。
 
-- `affiliation_token`: `/create-affiliation-token` で発行された所属トークンです。
+- `affiliation_token`: `/create_affiliation_token` で発行された所属トークンです。
 
 ```ts
 request: { atcoder_id: string, affiliation_token: string }
@@ -76,7 +76,7 @@ response: { status: "success", token: string }
 
 また、連続して投票する場合、一定時間をおく必要があります。
 
-- `token`: `/create-token` で発行されたトークン
+- `token`: `/create_token` で発行されたトークン
 - `contest`: コンテスト ID （例: `abc123`）
 - `editorial`: 解説ページの URL（例: `https://img.atcoder.jp/abc123/editorial.pdf`）
 - `vote`: `none` => 投票しない, `up` => +1, `down` => -1
