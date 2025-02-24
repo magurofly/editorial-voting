@@ -49,8 +49,7 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     if req.method() == "OPTIONS" {
         return Ok(Response::builder()
             .status(StatusCode::NO_CONTENT)
-            .header("Access-Control-Allow-Origin", "atcoder.jp")
-            .header("Access-Control-Allow-Credentials", "true")
+            .header("Access-Control-Allow-Origin", "*")
             .header("Access-Control-Allow-Methods", "*")
             .header("Access-Control-Allow-Headers", "*")
             .header("Access-Control-Max-Age", "86400")
@@ -63,8 +62,7 @@ pub async fn handler(req: Request) -> Result<Response<Body>, Error> {
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "application/json")
-        .header("Access-Control-Allow-Origin", "atcoder.jp")
-        .header("Access-Control-Allow-Credentials", "true")
+        .header("Access-Control-Allow-Origin", "*")
         .header("Access-Control-Allow-Headers", "*")
         .body(Body::Text(serde_json::to_string(&res)?))?)
 }
