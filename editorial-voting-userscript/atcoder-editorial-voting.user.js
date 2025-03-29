@@ -248,6 +248,7 @@
                 overflow: "visible",
                 display: "inline-block",
                 height: "1.5em",
+                minWidth: "52px",
                 margin: "0 8px",
                 fontSize: "12px",
             });
