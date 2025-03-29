@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AtCoder Editorial Voting
 // @namespace    https://atcoder.jp/
-// @version      2025-02-11
+// @version      2025-03-30
 // @description  AtCoderの解説に投票します。
 // @license      MIT
 // @author       magurofly
